@@ -1,9 +1,9 @@
-# V2 Research #4 — Fourier Alternative to Kronecker
+# V2 Research #4: Fourier Alternative to Kronecker
 
 **Problem (from [RESEARCH_POINTS.md](../RESEARCH_POINTS.md)):**  
 What is a real Fourier alternative to Kronecker? Can each character be a Fourier wave, summed to form a word?
 
-**Solution:** Replace Kronecker **spikes** with **sinusoidal basis waves** — same `D = d_c × d_p`, same z-norm, same `W_proj` interface.
+**Solution:** Replace Kronecker **spikes** with **sinusoidal basis waves**; same `D = d_c × d_p`, same z-norm, same `W_proj` interface.
 
 ---
 
@@ -43,10 +43,10 @@ Phase 4-style **geometry probes** on the codec alone:
 2. **Case sensitivity:** `run` / `Run` / `swift` / `SWIFT` stay distinct (different bytes → different frequencies).
 3. **Prefix locality:** `run` / `runs` / `runner` cluster.
 4. **No false semantics:** `love` / `affection`, `love` / `प्रेम` stay low.
-5. **NN probe:** loose morph@5 on `"run"` family — compare to Kronecker ~0.92.
+5. **NN probe:** loose morph@5 on `"run"` family; compare to Kronecker ~0.92.
 6. **Distinct from Kronecker:** same string → correlated but not identical vectors.
 
-Training (Phase 5) is **optional** for this submission — geometry proof matches RESEARCH_POINTS guidance.
+Training (Phase 5) is **optional** for this submission; geometry proof matches RESEARCH_POINTS guidance.
 
 ---
 
@@ -63,9 +63,9 @@ Training (Phase 5) is **optional** for this submission — geometry proof matche
 ## Run
 
 ```powershell
-cd kronecker-learn
-.venv\Scripts\python.exe -m pytest tests/test_fourier_codec.py -v
-.venv\Scripts\python.exe playground_v2_fourier.py
+uv sync --group dev
+uv run pytest tests/test_fourier_codec.py -v
+uv run python playground_v2_fourier.py
 ```
 
 Building full vocab Fourier table (`d_p=16`) takes ~30–60s on first run.
@@ -82,20 +82,20 @@ Building full vocab Fourier table (`d_p=16`) takes ~30–60s on first run.
 | False semantics (`love`/`affection`) | 0.166 | **0.167** |
 | NN of `run` | `runs`, `ru`, `runner` | **Identical top-5** |
 | Mean loose morph@5 | 0.940 | **0.940** |
-| Same string vs Kronecker vector | — | cosine ≈ **0.002** (different κ, same geometry) |
+| Same string vs Kronecker vector | · | cosine ≈ **0.002** (different κ, same geometry) |
 
 **Insight:** Fourier waves keyed by the same `lin_idx = byte × d_p + pos` preserve **byte-locality geometry** almost exactly after z-norm, while producing **dense** vectors (all D dims active). The encodings are different subspaces; probe rankings coincide.
 
-**Tradeoff vs Kronecker spikes:** Dense κ uses full dimension every forward pass; may differ under training or with collision analysis — worth a Phase 5 ablation if time permits.
+**Tradeoff vs Kronecker spikes:** Dense κ uses full dimension every forward pass; may differ under training or with collision analysis; worth a Phase 5 ablation if time permits.
 
 ---
 
 ## Limitations & next steps
 
-- Still fixed `d_p` truncation (Research #3 — dynamic positions — is separate).
+- Still fixed `d_p` truncation (Research #3 on dynamic positions is separate).
 - No training comparison yet (plug `fourier_codec` into `KroneckerEmbedding` with a flag, or precompute Fourier table).
 - Harmonics / learned frequencies could extend the basis (future work).
-- Invertibility (Research #5) not addressed — dense κ may have more collisions than sparse spikes.
+- Invertibility (Research #5) not addressed; dense κ may have more collisions than sparse spikes.
 
 ---
 

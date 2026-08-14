@@ -16,7 +16,7 @@ add:  φ(b,p) = byte_wave(b) + position_wave(p)
 
 ## Why bind beats add
 
-`add` mixes byte and position linearly — collisions across `(b1,p1)` vs `(b2,p2)` are more likely.  
+`add` mixes byte and position linearly; collisions across `(b1,p1)` vs `(b2,p2)` are more likely.  
 `bind` (Hadamard) couples them multiplicatively, closer in spirit to Kronecker's `(byte, pos)` indexing.
 
 Measured at `d_p=16`:
@@ -31,12 +31,13 @@ Measured at `d_p=16`:
 ## Run
 
 ```powershell
-python -m pytest tests/test_compact_codec.py -v
-python playground_v2_fourier.py   # Experiment 5 = dimension sweep
+uv sync --group dev
+uv run pytest tests/test_compact_codec.py -v
+uv run python playground_v2_fourier.py   # Experiment 5 = dimension sweep
 ```
 
 ## Limitations
 
 - morph@5 is a proxy; LM training not yet run
-- Very low D (64) may degrade typo/prefix pairs — sweep in playground
+- Very low D (64) may degrade typo/prefix pairs; sweep in playground
 - `add` mode included for comparison but not recommended

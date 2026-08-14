@@ -1,6 +1,6 @@
 # Pen-and-Paper Walkthrough: Kronecker vs Fourier vs Compact
 
-Tiny dimensions you can write on one page. **Same toy world** as [pen-and-paper-walkthrough_kronecker_vs_gpt2.md](pen-and-paper-walkthrough_kronecker_vs_gpt2.md); here we compare all three byte-local codecs in this repo.
+Tiny dimensions you can write on one page. **Same toy world** as the Kronecker baseline walkthrough in [Kronecker Embeddings (V1)](https://github.com/rajiviyer/kronecker-embedding-research); here we compare all three byte-local codecs in this repo.
 
 **Related:** [v2-fourier-alternative.md](v2-fourier-alternative.md) · [v3-compact-codec.md](v3-compact-codec.md) · code in `codec.py`, `fourier_codec.py`, `compact_codec.py`
 
@@ -28,10 +28,10 @@ Tiny dimensions you can write on one page. **Same toy world** as [pen-and-paper-
 
 | Token | String | UTF-8 bytes | Length `L` |
 |-------|--------|-------------|------------|
-| — | `ab` | `[1, 2]` | 2 |
-| — | `ba` | `[2, 1]` | 2 |
-| — | `abc` | `[1, 2, 3]` | 3 |
-| — | `acb` | `[1, 3, 2]` | 3 |
+| · | `ab` | `[1, 2]` | 2 |
+| · | `ba` | `[2, 1]` | 2 |
+| · | `abc` | `[1, 2, 3]` | 3 |
+| · | `acb` | `[1, 3, 2]` | 3 |
 
 **Shared pipeline for all three codecs:**
 
@@ -64,7 +64,7 @@ byte 3  [   9      10      11   ]
 
 ---
 
-## Part A — Kronecker (spike codec)
+## Part A: Kronecker (spike codec)
 
 **Rule:** put `1/√L` at exactly one coordinate per `(byte, position)`.
 
@@ -95,7 +95,7 @@ index:  0    1    2    3    4    5    6    7    8    9   10   11
               ↑ index 3              ↑ index 7
 ```
 
-### Token `"ba"` = bytes `[2, 1]` — same letters, **different order**
+### Token `"ba"` = bytes `[2, 1]`; same letters, **different order**
 
 | position | byte | lin_idx | value |
 |----------|------|---------|-------|
@@ -117,7 +117,7 @@ After subtract-mean / divide-std over all 12 coords:
 
 ---
 
-## Part B — Fourier V2 (wave codec, same D)
+## Part B: Fourier V2 (wave codec, same D)
 
 **Rule:** same `lin_idx`, but replace each spike with a **sin/cos wave across all D coordinates**:
 
@@ -129,7 +129,7 @@ wave_i(j) = (cos(2π j i / D) + sin(2π j i / D)) / √2
 
 Reference: `_basis_wave()` and `fourier_codec()` in `fourier_codec.py`.
 
-**Key point:** `D = 12` — **same output size as Kronecker**, drop-in replacement for `W_proj`.
+**Key point:** `D = 12`; **same output size as Kronecker**, drop-in replacement for `W_proj`.
 
 ### Per-byte waves for `"ab"` (each divided by √L = √2)
 
@@ -156,7 +156,7 @@ index:  0    1     2     3     4     5     6     7     8     9    10    11
 κ_F:  [1.0, -0.18, 0.18, -1.0,  0.68,  0.68, -1.0,  0.18, -0.18, 1.0, -0.68, -0.68]
 ```
 
-**Every** coordinate is nonzero — dense from the start.
+**Every** coordinate is nonzero; dense from the start.
 
 ### z-normalized κ_F (`"ab"`)
 
@@ -176,11 +176,11 @@ index:  0    1     2     3     4     5     6     7     8     9    10    11
 
 Same string → **different** κ vectors (spike vs sinusoid), but **similar geometry** on byte-local probes at real scale (morph@5 ≈ 0.94 for both in `README.md`).
 
-For this toy `"ab"` example: cosine between z-normed κ_K and κ_F is about **−0.26** — correlated structure, not identical rows.
+For this toy `"ab"` example: cosine between z-normed κ_K and κ_F is about **−0.26**; correlated structure, not identical rows.
 
 ---
 
-## Part C — Compact V3 (factored waves, low D)
+## Part C: Compact V3 (factored waves, low D)
 
 **Rule:** factor byte and position into **separate** waves on a **smaller** `D`, then **bind** (Hadamard product) or **add**:
 
@@ -196,18 +196,18 @@ position_wave(p)[j] = (cos(2π j p / d_p) + sin(2π j p / d_p)) / √2
 
 Reference: `compact_codec()` in `compact_codec.py`.
 
-Here **`D = 4`** (not 12). Output is **not** the same size as Kronecker — the savings come from sharing dimensions via factoring.
+Here **`D = 4`** (not 12). Output is **not** the same size as Kronecker; the savings come from sharing dimensions via factoring.
 
 ### Factor vectors (D = 4)
 
-**byte_wave(1)** — byte `a`:
+**byte_wave(1)**; byte `a`:
 
 ```
 j:            [0,     1,     2,     3]
 byte_wave(1)= [0.707, 0.707,-0.707,-0.707]
 ```
 
-**position_wave(p)** — scale `d_p = 3`:
+**position_wave(p)**; scale `d_p = 3`:
 
 ```
 pos 0: [0.707, 0.707, 0.707, 0.707]
@@ -230,7 +230,7 @@ byte_wave(2) = [0.707, -0.707, 0.707, -0.707]
 φ(2, 1)      = [0.5,  -0.183, -0.683, -0.5]
 ```
 
-Position **modulates** the byte wave per dimension — this mimics Kronecker’s `(byte, pos)` coupling without a full 4×3 grid.
+Position **modulates** the byte wave per dimension; this mimics Kronecker’s `(byte, pos)` coupling without a full 4×3 grid.
 
 ### Raw κ_C for `"ab"` (bind, D = 4)
 
@@ -247,20 +247,20 @@ j:     [0,     1,     2,     3]
 κ_C(ab) ≈ [ 1.34,  0.59, -1.06, -0.86]
 ```
 
-Only **4** numbers to write — fits easily on one line.
+Only **4** numbers to write; fits easily on one line.
 
 ### bind vs add (same `"ab"`)
 
 | mode | raw κ_C (D=4) | Keeps byte vs position distinct? |
 |------|---------------|----------------------------------|
-| **bind** | `[0.71, 0.22, -0.84, -0.71]` | **yes** — `"ab"` vs `"ba"` differ |
-| **add** | `[2.0, 0.68, -0.18, 0]` | **no** at this D — `"ab"` vs `"ba"` collapse (cos ≈ 1.0) |
+| **bind** | `[0.71, 0.22, -0.84, -0.71]` | **yes**; `"ab"` vs `"ba"` differ |
+| **add** | `[2.0, 0.68, -0.18, 0]` | **no** at this D; `"ab"` vs `"ba"` collapse (cos ≈ 1.0) |
 
 At real scale (`D=128`, bind), add mode underperforms (morph@5 ≈ 0.88 vs 0.96 for bind in `README.md`). **Bind is the Kronecker-like choice.**
 
 ---
 
-## Part D — Side-by-side on one page
+## Part D: Side-by-side on one page
 
 ```
 Token "ab" = bytes [1, 2]
@@ -288,7 +288,7 @@ bytes [1,2] ───────►│  Kronecker: spike at lin_idx 3, 7       
 
 ---
 
-## Part E — Geometry (cosine between z-normed κ)
+## Part E: Geometry (cosine between z-normed κ)
 
 Same pairs as the BPE/Kronecker walkthrough. Values computed with repo formulas (`d_c=4`, `d_p=3`; Compact at `D=4`, bind).
 
@@ -301,15 +301,15 @@ Same pairs as the BPE/Kronecker walkthrough. Values computed with repo formulas 
 
 ### How to read this table
 
-- **Order matters:** `ab` vs `ba` should stay **dissimilar** (Kronecker −0.20). Fourier matches that (≈ 0). Compact bind stays modestly separated (0.21); **add mode fails** here (cos = 1.0 — do not use add at low D).
+- **Order matters:** `ab` vs `ba` should stay **dissimilar** (Kronecker −0.20). Fourier matches that (≈ 0). Compact bind stays modestly separated (0.21); **add mode fails** here (cos = 1.0; do not use add at low D).
 - **Prefix locality:** `ab` vs `abc` should stay **similar** (shared prefix bytes). All three pass; Compact bind is very high (0.97) even at D=4.
-- **Permutation:** `abc` vs `acb` — same multiset of bytes, different order. Kronecker ≈ 0.11 (low, as desired). Compact bind is higher (0.77) — small D has more collision; at real `D=128` bind still beats Kronecker on morph@5.
+- **Permutation:** `abc` vs `acb`; same multiset of bytes, different order. Kronecker ≈ 0.11 (low, as desired). Compact bind is higher (0.77); small D has more collision; at real `D=128` bind still beats Kronecker on morph@5.
 
 **Toy D=4 is for algebra, not for claiming final benchmark numbers.** The qualitative pattern (bind ≈ Kronecker coupling, Fourier ≈ Kronecker at same D) is what matters on paper.
 
 ---
 
-## Part F — Token `"abc"` (three bytes) in all three codecs
+## Part F: Token `"abc"` (three bytes) in all three codecs
 
 Bytes `[1, 2, 3]`, `L = 3`, scale = `1/√3 ≈ 0.577`.
 
@@ -340,7 +340,7 @@ Superposition of three waves at lin_idx 3, 7, 11 → dense 12-vector; after z-no
 
 ---
 
-## Part G — Map back to real scale
+## Part G: Map back to real scale
 
 | | Kronecker | Fourier V2 | Compact bind |
 |---|-----------|------------|--------------|
@@ -363,7 +363,7 @@ Compact (D=128):
 
 ---
 
-## Part H — Index cheat sheet
+## Part H: Index cheat sheet
 
 ```
 Kronecker / Fourier:
@@ -430,10 +430,10 @@ d_c, d_p = 4, 3
 
 | Mistake | Correct |
 |---------|---------|
-| Fourier changes `D` | V2 Fourier keeps **D = d_c × d_p** — only the basis changes |
+| Fourier changes `D` | V2 Fourier keeps **D = d_c × d_p**; only the basis changes |
 | Compact uses the same `lin_idx` grid | Compact **factors** byte and position; no single spike index |
 | `add` and `bind` are interchangeable | **bind** (⊙) couples byte×position; add loses order at low D |
 | z-norm optional | All three codecs z-norm before geometry probes and projection |
 | Toy D=4 benchmarks match paper | Use toy for **algebra**; trust `playground_v2_fourier.py` for real morph@5 |
 
-See also [pen-and-paper-walkthrough_kronecker_vs_gpt2.md](pen-and-paper-walkthrough_kronecker_vs_gpt2.md) for BPE vs Kronecker and the `W_proj` multiply step.
+See also [Kronecker Embeddings (V1)](https://github.com/rajiviyer/kronecker-embedding-research) for BPE vs Kronecker and the `W_proj` multiply step.
