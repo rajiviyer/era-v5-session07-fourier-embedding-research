@@ -1,7 +1,7 @@
 """
 V2 Research #4 playground — Fourier vs Kronecker codec comparison.
 
-    .venv\\Scripts\\python.exe playground_v2_fourier.py
+    uv run python playground_v2_fourier.py
 """
 
 from __future__ import annotations
@@ -40,6 +40,30 @@ def pair_table(title: str, pairs: list[tuple[str, str]], d_p: int) -> None:
             fourier_codec_from_string(b, d_p=d_p),
         )
         print(f"  {a!r} vs {b!r}  {k_cos:10.4f}  {f_cos:10.4f}")
+
+
+def triple_pair_table(
+    title: str,
+    pairs: list[tuple[str, str]],
+    d_p: int,
+    compact_dim: int = 128,
+) -> None:
+    """Kronecker / Fourier / Compact pairwise cosines."""
+    print(f"\n  {title}")
+    print(f"  {'Pair':36s}  {'Kronecker':>10s}  {'Fourier':>10s}  {'Compact':>10s}")
+    print("  " + "-" * 72)
+    for a, b in pairs:
+        k_cos = centered_cosine(codec_from_string(a, d_p=d_p), codec_from_string(b, d_p=d_p))
+        f_cos = centered_cosine(
+            fourier_codec_from_string(a, d_p=d_p),
+            fourier_codec_from_string(b, d_p=d_p),
+        )
+        c_cos = centered_cosine(
+            compact_codec_from_string(a, dim=compact_dim, d_p=d_p, combine="bind"),
+            compact_codec_from_string(b, dim=compact_dim, d_p=d_p, combine="bind"),
+        )
+        label = f"{a!r} vs {b!r}"
+        print(f"  {label:36s}  {k_cos:10.4f}  {f_cos:10.4f}  {c_cos:10.4f}")
 
 
 def experiment_1_pairwise(d_p: int = 16) -> None:
@@ -172,9 +196,34 @@ def experiment_5_compact_sweep(d_p: int = 16) -> None:
     print()
 
 
+def experiment_6_indic_utf8(d_p: int = 16, compact_dim: int = 128) -> None:
+    print("\n" + "=" * 70)
+    print("EXPERIMENT 6: Multibyte UTF-8 — Indic script probes")
+    print("=" * 70)
+    print(
+        "  Hypothesis: codecs operate on UTF-8 bytes; Indic multibyte strings "
+        "show prefix/typo/cross-script separation like English.\n"
+    )
+
+    pairs = [
+        ("love", "प्रेम"),       # cross-script — should stay low
+        ("भारत", "भारती"),       # Devanagari prefix
+        ("प्रेम", "परेम"),        # one-byte typo (reordered matra)
+        ("शिक्षक", "शिक्षा"),    # related forms
+        ("காடு", "காடுகள்"),      # Tamil prefix-like suffix
+    ]
+    triple_pair_table("Indic / cross-script pairs (centered cosine)", pairs, d_p, compact_dim)
+    print(
+        "\n  LM ablation on Indic-only corpus:\n"
+        "    uv run python train.py --all --corpus data/corpus_indic_sample.txt "
+        "--steps 300 --eval-every 100\n"
+    )
+
+
 if __name__ == "__main__":
     experiment_1_pairwise()
     experiment_2_neighbors()
     experiment_3_aggregate_morph()
     experiment_4_wave_intuition()
     experiment_5_compact_sweep()
+    experiment_6_indic_utf8()
