@@ -1,5 +1,5 @@
 """
-Train tiny GPT on real text — compare BPE vs codec embeddings (assignment LM proof).
+Train tiny GPT on real text — compare BPE vs codec embeddings (Layer 2 LM proof).
 
 Examples:
     uv run python train.py --embedding kronecker --steps 500

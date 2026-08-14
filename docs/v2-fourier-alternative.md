@@ -1,16 +1,15 @@
 # V2 Research #4: Fourier Alternative to Kronecker
 
-**Problem (from [RESEARCH_POINTS.md](../RESEARCH_POINTS.md)):**  
-What is a real Fourier alternative to Kronecker? Can each character be a Fourier wave, summed to form a word?
+**Problem:** What is a real Fourier alternative to Kronecker? Can each character be a Fourier wave, summed to form a word?
 
-**Solution:** Replace Kronecker **spikes** with **sinusoidal basis waves**; same `D = d_c × d_p`, same z-norm, same `W_proj` interface.
+**Solution:** Replace Kronecker **spikes** with **sinusoidal basis waves**; same `D = d_c × d_p`, same z-norm, same `proj` interface.
 
 ---
 
 ## Kronecker vs Fourier
 
-| | Kronecker (V1) | Fourier (V2 proposal) |
-|---|----------------|----------------------|
+| | Kronecker (V1) | Fourier (V2) |
+|---|----------------|--------------|
 | Per (byte, position) | Spike at index `byte × d_p + pos` | Wave `cos + sin` across all `D` dims |
 | Raw κ sparsity | Sparse (L nonzero) | Dense (all D active) |
 | Superposition | Add spikes | Add waves (Fourier synthesis) |
@@ -35,18 +34,25 @@ Word embedding = sum of per-byte waves → classic superposition.
 
 ---
 
-## How we prove it works (without full LM training)
+## How we prove it works
 
-Phase 4-style **geometry probes** on the codec alone:
+Two layers (see root [README.md](../README.md)):
 
-1. **Typo robustness:** `separate` / `seperate` cosine stays high (byte similarity preserved).
-2. **Case sensitivity:** `run` / `Run` / `swift` / `SWIFT` stay distinct (different bytes → different frequencies).
+**Layer 1 — Geometry (no LM):** Phase 4-style probes on the fixed codec:
+
+1. **Typo robustness:** `separate` / `seperate` cosine stays high.
+2. **Case sensitivity:** `run` / `Run` / `swift` / `SWIFT` stay distinct.
 3. **Prefix locality:** `run` / `runs` / `runner` cluster.
 4. **No false semantics:** `love` / `affection`, `love` / `प्रेम` stay low.
-5. **NN probe:** loose morph@5 on `"run"` family; compare to Kronecker ~0.92.
+5. **NN probe:** loose morph@5 on `"run"` family; compare to Kronecker.
 6. **Distinct from Kronecker:** same string → correlated but not identical vectors.
 
-Training (Phase 5) is **optional** for this submission; geometry proof matches RESEARCH_POINTS guidance.
+**Layer 2 — Tiny LM:** Train identical TinyGPT on real text with BPE vs Kronecker vs Fourier vs Compact; val loss must decrease under the same corpus and hyperparameters.
+
+```bash
+uv run python main.py
+uv run python train.py --all --steps 500 --eval-every 100 --plot
+```
 
 ---
 
@@ -54,15 +60,17 @@ Training (Phase 5) is **optional** for this submission; geometry proof matches R
 
 | File | Purpose |
 |------|---------|
-| `kronecker-learn/fourier_codec.py` | `fourier_codec`, `fourier_codec_from_string`, `build_fourier_codec_matrix` |
-| `kronecker-learn/playground_v2_fourier.py` | Side-by-side Kronecker vs Fourier experiments |
-| `kronecker-learn/tests/test_fourier_codec.py` | Unit tests |
+| `fourier_codec.py` | `fourier_codec`, `fourier_codec_from_string`, `build_fourier_codec_matrix` |
+| `playground_v2_fourier.py` | Side-by-side Kronecker vs Fourier vs Compact experiments |
+| `embedding.py` | PyTorch `CodecEmbedding` with Fourier table + learned `proj` |
+| `train.py` | Real-corpus 4-way LM ablation |
+| `tests/test_fourier_codec.py` | Unit tests |
 
 ---
 
 ## Run
 
-```powershell
+```bash
 uv sync --group dev
 uv run pytest tests/test_fourier_codec.py -v
 uv run python playground_v2_fourier.py
@@ -72,36 +80,27 @@ Building full vocab Fourier table (`d_p=16`) takes ~30–60s on first run.
 
 ---
 
-## Expected findings (from `playground_v2_fourier.py`, `d_p=16`)
+## Measured findings (`playground_v2_fourier.py`, `d_p=16`)
 
-| Phenomenon | Kronecker | Fourier (measured) |
-|------------|-----------|-------------------|
-| Typos (`separate`/`seperate`) | 0.875 | **0.875** (match) |
+| Phenomenon | Kronecker | Fourier |
+|------------|-----------|---------|
+| Typos (`separate`/`seperate`) | 0.875 | **0.875** |
 | Case (`swift`/`SWIFT`) | −0.001 | **0.000** |
 | Prefix (`run`/`runs`) | 0.866 | **0.866** |
 | False semantics (`love`/`affection`) | 0.166 | **0.167** |
 | NN of `run` | `runs`, `ru`, `runner` | **Identical top-5** |
 | Mean loose morph@5 | 0.940 | **0.940** |
-| Same string vs Kronecker vector | · | cosine ≈ **0.002** (different κ, same geometry) |
+| Same string vs Kronecker vector | · | cosine ≈ **0.002** |
 
-**Insight:** Fourier waves keyed by the same `lin_idx = byte × d_p + pos` preserve **byte-locality geometry** almost exactly after z-norm, while producing **dense** vectors (all D dims active). The encodings are different subspaces; probe rankings coincide.
+**Insight:** Fourier waves keyed by the same `lin_idx = byte × d_p + pos` preserve **byte-locality geometry** almost exactly after z-norm, while producing **dense** vectors. Probe rankings coincide; raw κ subspaces differ.
 
-**Tradeoff vs Kronecker spikes:** Dense κ uses full dimension every forward pass; may differ under training or with collision analysis; worth a Phase 5 ablation if time permits.
+**Tradeoff vs Kronecker spikes:** Dense κ activates all D coordinates each forward pass; collision analysis and matched-parameter LM ablations are future work (see README).
 
 ---
 
 ## Limitations & next steps
 
-- Still fixed `d_p` truncation (Research #3 on dynamic positions is separate).
-- No training comparison yet (plug `fourier_codec` into `KroneckerEmbedding` with a flag, or precompute Fourier table).
-- Harmonics / learned frequencies could extend the basis (future work).
-- Invertibility (Research #5) not addressed; dense κ may have more collisions than sparse spikes.
-
----
-
-## 2-day work plan
-
-| Day | Task |
-|-----|------|
-| **1** | Implement `fourier_codec.py`, tests, pairwise playground |
-| **2** | Full NN probes, document results in this file, optional short training ablation |
+- Fixed `d_p` truncation (dynamic positions are separate research).
+- Harmonics / learned frequencies could extend the basis.
+- Invertibility not addressed; dense κ may have more collisions than sparse spikes.
+- See [v3-compact-codec.md](v3-compact-codec.md) for low-D factored alternative (Compact bind).

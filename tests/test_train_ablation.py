@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from data import load_corpus_text, sample_batch, tokenize_corpus, train_val_split
+from data import DEFAULT_CORPUS_SMALL, load_corpus_text, sample_batch, tokenize_corpus, train_val_split
 from train import train
 
 
@@ -16,6 +16,12 @@ def test_corpus_loads_and_tokenizes():
     assert len(ids) >= 100
     train, val = train_val_split(ids, val_fraction=0.1)
     assert len(train) > len(val)
+
+
+def test_english_corpus_loads():
+    text = load_corpus_text()
+    ids = tokenize_corpus(text)
+    assert len(ids) >= 50_000
 
 
 def test_indic_corpus_loads():
@@ -50,6 +56,7 @@ def test_train_short(kind: str):
         eval_every=10,
         eval_batches=3,
         vocab_limit=512,
+        corpus_path=DEFAULT_CORPUS_SMALL,
         results_dir=Path("results_test"),
     )
     assert summary["best_val_loss"] > 0

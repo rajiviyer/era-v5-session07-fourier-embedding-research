@@ -151,7 +151,7 @@ def load_hf_input_embeddings(model_id: str) -> tuple[np.ndarray, Any]:
     Load pretrained input embedding table from HuggingFace.
 
     Requires: transformers, safetensors
-    Auth: set HF_TOKEN in kronecker-learn/.env (see .env.example)
+    Auth: set HF_TOKEN in environment or `.env` (see HuggingFace hub docs).
     """
     try:
         import torch
