@@ -12,3 +12,4 @@ dev = ["pytest>=8.0", "matplotlib>=3.7"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
