@@ -16,3 +16,7 @@ wheels/
 
 # UV lock files
 uv.lock
+
+# Training run outputs
+results/
+results_test/
