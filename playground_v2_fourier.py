@@ -8,11 +8,14 @@ from __future__ import annotations
 
 import sys
 
+import numpy as np
+
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
 from byte_table import get_gpt2_tokenizer
 from codec import codec_from_string
+from compact_codec import build_compact_codec_matrix, compact_codec_from_string
 from fourier_codec import build_fourier_codec_matrix, fourier_codec_from_string
 from probes.neighbors import (
     build_kronecker_codec_matrix,
@@ -111,8 +114,67 @@ def experiment_4_wave_intuition(d_p: int = 16) -> None:
     print("  → Each byte activates a distinct wave pattern across all D dimensions.\n")
 
 
+PROBE_PAIRS = [
+    ("separate", "seperate"),
+    ("swift", "SWIFT"),
+    ("run", "runs"),
+    ("love", "affection"),
+]
+
+
+def _pairwise_score(pairs: list[tuple[str, str]], codec_fn) -> float:
+    scores = [centered_cosine(codec_fn(a), codec_fn(b)) for a, b in pairs]
+    return float(sum(scores) / len(scores))
+
+
+def experiment_5_compact_sweep(d_p: int = 16) -> None:
+    print("\n" + "=" * 70)
+    print("EXPERIMENT 5: Compact factored codec — dimension sweep (D ≪ 256×d_p)")
+    print("=" * 70)
+    print(
+        "  Hypothesis: byte_wave(b) ⊙ position_wave(p) + superposition preserves "
+        "geometry at small D.\n"
+    )
+
+    kronecker_dim = 256 * d_p
+    print(f"  Kronecker / full Fourier baseline D = {kronecker_dim}\n")
+
+    def kron_fn(s: str) -> np.ndarray:
+        return codec_from_string(s, d_p=d_p)
+
+    kron_morph = _pairwise_score(PROBE_PAIRS, kron_fn)
+    print(f"  {'Codec':28s}  {'D':>6s}  {'mean pair cos':>14s}")
+    print("  " + "-" * 54)
+    print(f"  {'Kronecker (baseline)':28s}  {kronecker_dim:6d}  {kron_morph:14.4f}")
+
+    for dim in (64, 128, 256, 512, 1024):
+        def compact_fn(s: str, d: int = dim) -> np.ndarray:
+            return compact_codec_from_string(s, dim=d, d_p=d_p, combine="bind")
+
+        score = _pairwise_score(PROBE_PAIRS, compact_fn)
+        ratio = dim / kronecker_dim
+        print(f"  {'Compact bind':28s}  {dim:6d}  {score:14.4f}  ({ratio:.1%} of baseline D)")
+
+    tok = get_gpt2_tokenizer()
+    print(f"\n  Full-vocab morph@5 (d_p={d_p})...")
+    kron_matrix = build_kronecker_codec_matrix(tok, d_p=d_p)
+    kron_summary = summarize_probe_families(kron_matrix, tok, "Kronecker", k=5)
+    kron_m = kron_summary["_aggregate"]["mean_loose_morph_at_k"]
+
+    for dim in (128, 256, 512):
+        matrix = build_compact_codec_matrix(tok, dim=dim, d_p=d_p, combine="bind")
+        summary = summarize_probe_families(matrix, tok, f"Compact@{dim}", k=5)
+        morph = summary["_aggregate"]["mean_loose_morph_at_k"]
+        print(
+            f"  Compact bind D={dim:4d}  morph@5={morph:.3f}  "
+            f"(Kronecker={kron_m:.3f}, {100 * dim / kronecker_dim:.1f}% dims)"
+        )
+    print()
+
+
 if __name__ == "__main__":
     experiment_1_pairwise()
     experiment_2_neighbors()
     experiment_3_aggregate_morph()
     experiment_4_wave_intuition()
+    experiment_5_compact_sweep()
