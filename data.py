@@ -10,7 +10,8 @@ from torch import Tensor
 
 from byte_table import get_gpt2_tokenizer
 
-DEFAULT_CORPUS = Path(__file__).resolve().parent / "data" / "corpus_sample.txt"
+DEFAULT_CORPUS = Path(__file__).resolve().parent / "data" / "corpus_english.txt"
+DEFAULT_CORPUS_SMALL = Path(__file__).resolve().parent / "data" / "corpus_sample.txt"
 DEFAULT_CORPUS_INDIC = Path(__file__).resolve().parent / "data" / "corpus_indic_sample.txt"
 
 
