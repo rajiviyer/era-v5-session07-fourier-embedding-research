@@ -89,3 +89,24 @@ def codec_from_string(s: str, d_c: int = 256, d_p: int = 32) -> np.ndarray:
     """
     byte_sequence = list(s.encode("utf-8"))
     return z_normalize(kronecker_codec(byte_sequence, d_c, d_p))
+
+
+def build_kronecker_codec_matrix(
+    tokenizer,
+    d_p: int = 32,
+    d_c: int = 256,
+) -> np.ndarray:
+    """Full [vocab, D] z-normalized Kronecker κ table for NN probes."""
+    from byte_table import build_byte_tables
+
+    byte_table, length_table = build_byte_tables(tokenizer, d_p=d_p)
+    vocab_size = byte_table.shape[0]
+    d = d_c * d_p
+    matrix = np.zeros((vocab_size, d), dtype=np.float32)
+    for token_id in range(vocab_size):
+        nbytes = int(length_table[token_id])
+        if nbytes == 0:
+            continue
+        byte_seq = byte_table[token_id, :nbytes].tolist()
+        matrix[token_id] = z_normalize(kronecker_codec(byte_seq, d_c=d_c, d_p=d_p))
+    return matrix

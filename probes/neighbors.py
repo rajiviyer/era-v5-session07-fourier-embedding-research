@@ -11,8 +11,7 @@ from typing import Any
 
 import numpy as np
 
-from byte_table import build_byte_tables
-from embedding import _build_codec_table_np
+from codec import build_kronecker_codec_matrix
 
 # Paper §6.1 probe families
 PROBE_FAMILIES: dict[str, list[str]] = {
@@ -51,16 +50,6 @@ def loose_morph_at_k(neighbors: list[str], probe: str) -> float:
     probe_canon = canonical_form(probe)
     escapes = sum(1 for n in neighbors if canonical_form(n) != probe_canon)
     return escapes / len(neighbors)
-
-
-def build_kronecker_codec_matrix(
-    tokenizer,
-    d_p: int = 32,
-    d_c: int = 256,
-) -> np.ndarray:
-    """Full [vocab, D] z-normalized κ table for Kronecker NN probes."""
-    byte_table, length_table = build_byte_tables(tokenizer, d_p=d_p)
-    return _build_codec_table_np(byte_table, length_table, d_c, d_p)
 
 
 def random_gaussian_matrix(
