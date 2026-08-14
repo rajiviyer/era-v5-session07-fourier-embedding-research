@@ -30,11 +30,15 @@ Runs six geometry experiments on GPT-2 byte tables ($d_p=16$): pairwise cosines,
 compact dimension sweep, and Indic UTF-8 probes. Expect about 1 to 2 minutes on CPU for the
 full vocabulary codec build.
 
-Full research proof (train four embeddings, write `results/`):
+Full research proof (train four embeddings on 80k-token English corpus, write `results/`):
 
 ```bash
+python scripts/fetch_english_corpus.py   # once, if corpus_english.txt missing
 uv run python train.py --all --steps 500 --eval-every 100 --plot
+python scripts/plot_train_summary.py
 ```
+
+Expect **about 12 min on CPU** for the full 4-way run (about 30 s with `--vocab-limit 1024`).
 
 ## Setup
 
@@ -79,7 +83,7 @@ Strong byte-local geometry, but $D = 256 \times d_p$ (4096 at $d_p=16$, 8192 at 
 | H3 | $\mathrm{byte\_wave}(b) \odot \mathrm{pos\_wave}(p)$ approximates Kronecker coupling in low $D$ | **Supported:** Compact bind morph@5 **0.960** at $D=128$ |
 | H4 | Linear add of byte and position waves is insufficient at low $D$ | **Supported:** morph@5 0.880 at $D=256$ vs 0.950 (bind) |
 | H5 | Codecs generalize to multibyte UTF-8 (Indic scripts) | **Supported:** prefix high, cross-script low (Experiment 6) |
-| H6 | Fixed codecs support downstream LM training | **Supported:** `train.py` 4-way comparison; val loss decreases |
+| H6 | Fixed codecs support downstream LM training | **Supported:** val loss 10.8 → 4.87–4.99 over 500 steps on 78k-token English corpus |
 
 Reproduce H1 to H5 with `uv run python main.py`. Reproduce H6 with `uv run python train.py --all`.
 
@@ -112,7 +116,50 @@ uv run python train.py --all --corpus data/corpus_indic_sample.txt --steps 300 -
 
 English and Indic corpora are evaluated **separately** (do not mix scripts in one ablation).
 
-First full-vocab codec table build: ~30 to 60 s. Dev shortcut: `--vocab-limit 1024`.
+**Runtime (CPU, full GPT-2 vocab, measured on this repo):**
+
+| Command | Corpus | Approx. time |
+|---------|--------|-------------:|
+| `train_smoke.py` (100 steps, one embedding) | random batch | ≈30 s |
+| `train.py --embedding kronecker --steps 500` | 80k English | ≈3 min |
+| `train.py --all --steps 500 --plot` | 80k English | **≈12 min** |
+| `train.py --all --steps 500` | 1k smoke (`corpus_sample.txt`) | ≈5 min |
+| `pytest tests/` | — | ≈30 s |
+
+Most of the 4-way wall time is **500 training steps × 4 embeddings**. The Fourier codec
+table build adds **60–90 s once** per run (Kronecker about 5 s, Compact about 20 s, BPE
+negligible). Use `--vocab-limit 1024` for fast dev iterations (about 10× faster codec build).
+
+### Layer 2: measured results
+
+Command (reproduces figures in `docs/figures/`):
+
+```bash
+python scripts/fetch_english_corpus.py   # Gutenberg → data/corpus_english.txt (~80k tokens)
+uv run python train.py --all --steps 500 --eval-every 100 --plot
+python scripts/plot_train_summary.py
+```
+
+Quick smoke on the tiny Finn story (about 1k tokens): `--corpus data/corpus_sample.txt`.
+
+Setup: `data/corpus_english.txt` (78,395 tokens after split), full GPT-2 vocab (50,257),
+`d_model=128`, `seq_len=32`, `batch_size=16`, `d_p=16`, Compact $D=128$, CPU, seed 0.
+
+| Embedding | Embed params | Best val loss | Val @ step 1 |
+|-------------|-------------:|--------------:|-------------:|
+| BPE | 6,432,896 | **4.872** | 10.757 |
+| Kronecker | 524,288 | 4.886 | 10.978 |
+| Fourier | 524,288 | 4.971 | 10.528 |
+| Compact bind | 16,384 | 4.994 | 10.850 |
+
+Val loss improves steadily through step 500 (no early overfitting on this corpus). BPE and
+Kronecker edge Compact on raw val loss here, but Compact uses **32× fewer** projection
+parameters than Kronecker and **393× fewer** than BPE; geometry probes (Layer 1) still favor
+Compact bind at $D=128$. Matched-parameter LM ablation is future work.
+
+![Layer 2 ablation: validation loss and best val by embedding](docs/figures/train_ablation_summary.png)
+
+Per-embedding curves: `docs/figures/train_{bpe,kronecker,fourier,compact}.png`.
 
 ## Measured geometry ($d_p=16$)
 
@@ -193,8 +240,9 @@ flowchart LR
 | PyTorch embeddings | `embedding.py` |
 | Tiny LM | `tiny_gpt.py` |
 | Training | `train.py`, `train_smoke.py` |
-| Corpora | `data/corpus_sample.txt`, `data/corpus_indic_sample.txt` |
-| Tests | `tests/` (33 cases) |
+| Corpora | `data/corpus_english.txt` (default), `data/corpus_sample.txt` (quick), `data/corpus_indic_sample.txt` |
+| Corpus scripts | `scripts/fetch_english_corpus.py`, `scripts/write_indic_corpus.py` |
+| Tests | `tests/` (34 cases) |
 
 ## Design decisions
 
@@ -206,7 +254,8 @@ flowchart LR
 | D4 | GPT-2 + `tiktoken` byte paths | Real BPE fragments and UTF-8 multibyte tokens |
 | D5 | Separate English and Indic corpora | Avoids confounded val-loss comparisons |
 | D6 | morph@5 as primary geometry metric | Standard byte-locality probe from Kronecker literature |
-| D7 | Tiny GPT for Layer 2 | Assignment-scale proof; not a scaling study |
+| D7 | Tiny GPT for Layer 2 | Validates training path on real text; not a scaling study |
+| D8 | Default LM corpus ≈80k tokens | Gutenberg English prose; stable val curves vs 1k-token smoke |
 
 ## Tests
 
@@ -214,7 +263,7 @@ flowchart LR
 uv run pytest tests/ -v
 ```
 
-33 tests, CPU only, no GPU, no network: codec invariants, full-vocab matrix smoke, 100-step
+34 tests, CPU only, no GPU, no network: codec invariants, full-vocab matrix smoke, 100-step
 train for all four embeddings, Indic probes, short `train.py` run.
 
 ## Artifacts
@@ -224,6 +273,10 @@ results/                     # gitignored; created by train.py
   train_{bpe,kronecker,fourier,compact}.csv
   train_summary.json
   train_*.png                # with --plot
+
+docs/figures/                # committed; README figures
+  train_ablation_summary.png
+  train_{bpe,kronecker,fourier,compact}.png
 ```
 
 ## Documentation
@@ -233,10 +286,11 @@ results/                     # gitignored; created by train.py
 | [docs/v2-fourier-alternative.md](docs/v2-fourier-alternative.md) | V2 detail |
 | [docs/v3-compact-codec.md](docs/v3-compact-codec.md) | V3 bind vs add |
 | [docs/pen-and-paper-walkthrough_kronecker_vs_fourier_vs_compact.md](docs/pen-and-paper-walkthrough_kronecker_vs_fourier_vs_compact.md) | Toy matrices |
+| [docs/figures/](docs/figures/) | Layer 2 training curves |
 
 ## Limitations
 
-- Tiny GPT (~1M parameters), short corpora, hundreds of steps: validates the training path,
+- Tiny GPT (about 1M parameters), short corpora, hundreds of steps: validates the training path,
   not LM competitiveness.
 - morph@5 is a geometry proxy, not downstream task accuracy.
 - Compact **add** mode underperforms bind; included as a negative baseline only.
