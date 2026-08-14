@@ -19,36 +19,37 @@ $\mathrm{proj}: \mathbb{R}^D \to \mathbb{R}^{d_{\mathrm{model}}}$ is learned. We
 claims in two layers: **codec geometry probes** (no LM) and **tiny-GPT training** on real
 text.
 
-## One command
+## Quick start
+
+Install once:
 
 ```bash
 uv sync --group dev
-uv run python main.py
 ```
 
-Runs six geometry experiments on GPT-2 byte tables ($d_p=16$): pairwise cosines, morph@5,
-compact dimension sweep, and Indic UTF-8 probes. Expect about 1 to 2 minutes on CPU for the
-full vocabulary codec build.
+**Pick one path** — you do not need to run `main.py` or `train.py` more than once.
 
-Full research proof (train four embeddings on 80k-token English corpus, write `results/`):
+| Path | What it proves | Command | Time (CPU) |
+|------|----------------|---------|------------|
+| **A. Tests** | CI-equivalent sanity | `uv run pytest tests/ -v` | ≈30 s |
+| **B. Geometry (Layer 1)** | H1–H5, no LM | `uv run python main.py` | ≈1–2 min |
+| **C. Full proof (A+B+LM)** | H1–H6, recommended | see below | ≈15 min |
+
+Full proof (run each line **once**, in order):
 
 ```bash
-python scripts/fetch_english_corpus.py   # once, if corpus_english.txt missing
+uv run pytest tests/ -v
+uv run python main.py
 uv run python train.py --all --steps 500 --eval-every 100 --plot
-python scripts/plot_train_summary.py
 ```
 
-Expect **about 12 min on CPU** for the full 4-way run (about 30 s with `--vocab-limit 1024`).
+Corpus: `data/corpus_english.txt` is bundled (~80k tokens). Regenerate only if missing:
+`python scripts/fetch_english_corpus.py`. Optional: `python scripts/plot_train_summary.py`
+refreshes `docs/figures/train_ablation_summary.png` from `results/`.
 
 ## Setup
 
-Install [uv](https://docs.astral.sh/uv/), then from the repo root:
-
-```bash
-uv sync --group dev
-uv run pytest tests/ -v
-uv run python main.py
-```
+Install [uv](https://docs.astral.sh/uv/), then follow **Quick start** above.
 
 Runtime: `numpy`, `tiktoken`, `torch`. Dev: `pytest`, `matplotlib`. CI runs tests on
 Python 3.11 and 3.12 (`.github/workflows/ci.yml`).
@@ -85,7 +86,8 @@ Strong byte-local geometry, but $D = 256 \times d_p$ (4096 at $d_p=16$, 8192 at 
 | H5 | Codecs generalize to multibyte UTF-8 (Indic scripts) | **Supported:** prefix high, cross-script low (Experiment 6) |
 | H6 | Fixed codecs support downstream LM training | **Supported:** val loss 10.8 → 4.87–4.99 over 500 steps on 78k-token English corpus |
 
-Reproduce H1 to H5 with `uv run python main.py`. Reproduce H6 with `uv run python train.py --all`.
+Reproduce H1–H5 with path **B** in Quick start. Reproduce H6 with path **C** (or
+`uv run python train.py --all` alone if you skip geometry).
 
 ## Proof protocol
 
@@ -107,12 +109,16 @@ Reproduce H1 to H5 with `uv run python main.py`. Reproduce H6 with `uv run pytho
 
 ### Layer 2: training
 
+Optional variants (default corpus is `data/corpus_english.txt`):
+
 ```bash
-uv run python train_smoke.py --embedding kronecker          # 100-step sanity
+uv run python train_smoke.py --embedding kronecker          # 100-step sanity, ≈30 s
 uv run python train.py --embedding compact --steps 500 --eval-every 100
-uv run python train.py --all --steps 500 --eval-every 100 --plot
 uv run python train.py --all --corpus data/corpus_indic_sample.txt --steps 300 --eval-every 100
+uv run python train.py --all --corpus data/corpus_sample.txt --steps 500   # tiny smoke corpus
 ```
+
+For the main 4-way ablation, use path **C** in Quick start (run once).
 
 English and Indic corpora are evaluated **separately** (do not mix scripts in one ablation).
 
@@ -132,18 +138,8 @@ negligible). Use `--vocab-limit 1024` for fast dev iterations (about 10× faster
 
 ### Layer 2: measured results
 
-Command (reproduces figures in `docs/figures/`):
-
-```bash
-python scripts/fetch_english_corpus.py   # Gutenberg → data/corpus_english.txt (~80k tokens)
-uv run python train.py --all --steps 500 --eval-every 100 --plot
-python scripts/plot_train_summary.py
-```
-
-Quick smoke on the tiny Finn story (about 1k tokens): `--corpus data/corpus_sample.txt`.
-
-Setup: `data/corpus_english.txt` (78,395 tokens after split), full GPT-2 vocab (50,257),
-`d_model=128`, `seq_len=32`, `batch_size=16`, `d_p=16`, Compact $D=128$, CPU, seed 0.
+From path **C** in Quick start (500 steps, 80k-token English corpus, seed 0). Figures in
+`docs/figures/` match this run; training logs go to gitignored `results/`.
 
 | Embedding | Embed params | Best val loss | Val @ step 1 |
 |-------------|-------------:|--------------:|-------------:|
